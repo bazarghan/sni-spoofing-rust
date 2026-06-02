@@ -66,6 +66,8 @@ pub enum XrayParseError {
     Empty,
     #[error("unsupported share link scheme: {0}")]
     UnsupportedScheme(String),
+    #[error("{0}")]
+    UnsupportedShare(String),
     #[error("invalid URL: {0}")]
     Url(#[from] url::ParseError),
     #[error("invalid base64 payload")]

@@ -22,6 +22,11 @@ jobs:
             name: sni-spoof-rs-linux-amd64
             ui_name: sni-spoof-rs-ui-linux-amd64
             xray_asset: Xray-linux-64.zip
+          - target: x86_64-unknown-linux-musl
+            os: ubuntu-latest
+            name: sni-spoof-rs-linux-amd64-musl
+            ui_name: ""
+            xray_asset: ""
           - target: aarch64-unknown-linux-gnu
             os: ubuntu-latest
             name: sni-spoof-rs-linux-arm64
@@ -68,6 +73,12 @@ jobs:
           sudo apt-get install -y gcc-aarch64-linux-gnu
           echo '[target.aarch64-unknown-linux-gnu]' >> ~/.cargo/config.toml
           echo 'linker = "aarch64-linux-gnu-gcc"' >> ~/.cargo/config.toml
+
+      - name: Install musl tools
+        if: matrix.target == 'x86_64-unknown-linux-musl'
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y musl-tools
 
       - name: Install Linux UI dependencies
         if: matrix.target == 'x86_64-unknown-linux-gnu'
@@ -140,6 +151,9 @@ jobs:
             throw "xray.exe not found in Xray archive"
           }
           Copy-Item $xrayFile.FullName dist/${{ matrix.name }}/
+          Invoke-WebRequest -Uri "https://www.wintun.net/builds/wintun-0.14.1.zip" -OutFile wintun.zip
+          Expand-Archive wintun.zip -DestinationPath wintun-extracted -Force
+          Copy-Item wintun-extracted/wintun/bin/amd64/wintun.dll dist/${{ matrix.name }}/
           Compress-Archive -Path dist/${{ matrix.name }}/* -DestinationPath dist/${{ matrix.name }}.zip
 
       - uses: actions/upload-artifact@v7
@@ -174,6 +188,7 @@ jobs:
         run: |
           mkdir -p releases
           cp dist/sni-spoof-rs-linux-amd64 releases/
+          cp dist/sni-spoof-rs-linux-amd64-musl releases/ || true
           cp dist/sni-spoof-rs-linux-arm64 releases/
           cp dist/sni-spoof-rs-macos-amd64 releases/
           cp dist/sni-spoof-rs-macos-arm64 releases/

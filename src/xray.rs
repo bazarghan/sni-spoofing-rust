@@ -69,7 +69,9 @@ pub fn parse_share_link(input: &str) -> Result<XrayShare, XrayParseError> {
         return Err(XrayParseError::Empty);
     }
 
-    if trimmed.starts_with("vmess://") {
+    if trimmed.starts_with("v2rayn://") {
+        parse_v2rayn_wrapper(trimmed)
+    } else if trimmed.starts_with("vmess://") {
         parse_vmess(trimmed)
     } else {
         parse_url_style(trimmed)
@@ -177,6 +179,26 @@ fn parse_url_style(input: &str) -> Result<XrayShare, XrayParseError> {
         allow_insecure,
         tls,
     })
+}
+
+fn parse_v2rayn_wrapper(input: &str) -> Result<XrayShare, XrayParseError> {
+    let url = Url::parse(input)?;
+    let profile_kind = url.host_str().unwrap_or_default().to_ascii_lowercase();
+    match profile_kind.as_str() {
+        "shadowsocks" | "ss" => Err(XrayParseError::UnsupportedShare(
+            "v2rayN Shadowsocks links are not supported here; use a VLESS/Trojan Cloudflare link"
+                .into(),
+        )),
+        "vless" | "trojan" | "vmess" => Err(XrayParseError::UnsupportedShare(format!(
+            "v2rayN wrapped {} links are not supported; export/paste the normal {}:// link",
+            profile_kind, profile_kind
+        ))),
+        "" => Err(XrayParseError::UnsupportedScheme("v2rayn".into())),
+        other => Err(XrayParseError::UnsupportedScheme(format!(
+            "v2rayn://{}",
+            other
+        ))),
+    }
 }
 
 fn parse_vmess(input: &str) -> Result<XrayShare, XrayParseError> {
@@ -370,5 +392,12 @@ mod tests {
         assert_eq!(share.path.as_deref(), Some("/"));
         assert_eq!(share.name.as_deref(), Some("sample"));
         assert!(share.tls);
+    }
+
+    #[test]
+    fn rejects_v2rayn_shadowsocks_with_helpful_error() {
+        let link = "v2rayn://shadowsocks/eyJJbmRleElkIjoiNFdQNFhRIiwiQ29uZmlnVHlwZSI6MywiQ29uZmlnVmVyc2lvbiI6NCwiRGlzcGxheUxvZyI6dHJ1ZSwiUmVtYXJrcyI6Ilx1RDgzRFx1REQxMiBTUy1UQ1AtTkEgXHVEODNDXHVEREVFXHVEODNDXHVEREY3IElSLTEwOS4xMjIuMjUxLjg0OjgwIiwiQWRkcmVzcyI6IjEwOS4xMjIuMjUxLjg0IiwiUG9ydCI6ODAsIlBhc3N3b3JkIjoiWXVSdDZBWDlQNE5pdXRUd29ETXZEVHJ4SWpvX2xzR3IiLCJBbHRlcklkIjowLCJQcm90b0V4dHJhT2JqIjp7IlNzTWV0aG9kIjoiY2hhY2hhMjAtaWV0Zi1wb2x5MTMwNSJ9fQ";
+        let err = parse_share_link(link).expect_err("shadowsocks wrapper should be rejected");
+        assert!(err.to_string().contains("v2rayN Shadowsocks"));
     }
 }

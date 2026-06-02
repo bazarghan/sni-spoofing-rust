@@ -22,6 +22,8 @@ use sni_spoof_rs::{platform_privilege_hint, start_proxy, xray, RunningProxy};
 const LOG_MAX: usize = 300;
 const RESULT_MAX: usize = 800;
 const STATE_FILE: &str = "sni-spoof-rs-ui-state.json";
+#[cfg(windows)]
+const WINTUN_URL: &str = "https://www.wintun.net/builds/wintun-0.14.1.zip";
 
 fn main() -> eframe::Result<()> {
     if std::env::args()
@@ -582,6 +584,12 @@ impl App {
                 return false;
             }
         };
+
+        if let Err(e) = validate_tun_runtime(self.xray_tun_enabled, &self.xray_path) {
+            self.status = e.clone();
+            self.log.push(e);
+            return false;
+        }
 
         let config = match build_xray_config(
             &share,
@@ -1816,7 +1824,63 @@ fn download_xray_to(url: &str, dest_dir: &Path) -> Result<String, String> {
         std::fs::set_permissions(&binary, perms).map_err(|e| e.to_string())?;
     }
 
+    #[cfg(windows)]
+    install_wintun_to(dest_dir)?;
+
     Ok(binary.to_string_lossy().to_string())
+}
+
+#[cfg(windows)]
+fn install_wintun_to(dest_dir: &Path) -> Result<(), String> {
+    let zip_path = dest_dir.join("wintun.zip");
+    let extract_dir = dest_dir.join("wintun-extracted");
+    let _ = std::fs::remove_dir_all(&extract_dir);
+
+    let curl_status = Command::new("curl")
+        .arg("-L")
+        .arg("--fail")
+        .arg("--max-time")
+        .arg("180")
+        .arg("-o")
+        .arg(&zip_path)
+        .arg(WINTUN_URL)
+        .status()
+        .map_err(|e| format!("failed to run curl for Wintun: {}", e))?;
+    if !curl_status.success() {
+        return Err(format!("Wintun download exited with {}", curl_status));
+    }
+
+    let status = Command::new("powershell")
+        .arg("-NoProfile")
+        .arg("-ExecutionPolicy")
+        .arg("Bypass")
+        .arg("-Command")
+        .arg("Expand-Archive -Force -LiteralPath $args[0] -DestinationPath $args[1]")
+        .arg(&zip_path)
+        .arg(&extract_dir)
+        .status()
+        .map_err(|e| format!("failed to run powershell Expand-Archive for Wintun: {}", e))?;
+    if !status.success() {
+        return Err(format!("Wintun Expand-Archive exited with {}", status));
+    }
+
+    let arch_dir = match std::env::consts::ARCH {
+        "x86_64" => "amd64",
+        "x86" => "x86",
+        "aarch64" => "arm64",
+        other => return Err(format!("unsupported Wintun architecture: {}", other)),
+    };
+    let source = extract_dir
+        .join("wintun")
+        .join("bin")
+        .join(arch_dir)
+        .join("wintun.dll");
+    let dest = dest_dir.join("wintun.dll");
+    std::fs::copy(&source, &dest)
+        .map_err(|e| format!("failed to install Wintun from {}: {}", source.display(), e))?;
+    let _ = std::fs::remove_file(&zip_path);
+    let _ = std::fs::remove_dir_all(&extract_dir);
+    Ok(())
 }
 
 #[cfg(not(windows))]
@@ -1853,6 +1917,31 @@ fn extract_xray_zip(zip_path: &Path, binary_name: &str, dest_dir: &Path) -> Resu
     if !dest_dir.join(binary_name).exists() {
         return Err(format!("{} was not found in Xray archive", binary_name));
     }
+    Ok(())
+}
+
+#[cfg(windows)]
+fn validate_tun_runtime(tun_enabled: bool, xray_path: &str) -> Result<(), String> {
+    if !tun_enabled {
+        return Ok(());
+    }
+
+    let path = Path::new(xray_path.trim());
+    let Some(dir) = path.parent().filter(|dir| !dir.as_os_str().is_empty()) else {
+        return Ok(());
+    };
+    if dir.join("wintun.dll").exists() {
+        Ok(())
+    } else {
+        Err(format!(
+            "Xray TUN on Windows needs wintun.dll next to xray.exe. Use Download Xray or copy it to {}",
+            dir.display()
+        ))
+    }
+}
+
+#[cfg(not(windows))]
+fn validate_tun_runtime(_tun_enabled: bool, _xray_path: &str) -> Result<(), String> {
     Ok(())
 }
 

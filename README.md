@@ -53,6 +53,7 @@ The release assets include:
 | File | Platform |
 |---|---|
 | `sni-spoof-rs-linux-amd64` | Linux x86_64 CLI |
+| `sni-spoof-rs-linux-amd64-musl` | Linux x86_64 static musl CLI for older distros |
 | `sni-spoof-rs-linux-arm64` | Linux aarch64 CLI |
 | `sni-spoof-rs-macos-amd64` | macOS Intel CLI |
 | `sni-spoof-rs-macos-arm64` | macOS Apple Silicon CLI |
@@ -62,7 +63,7 @@ The release assets include:
 | `sni-spoof-rs-ui-linux-amd64-bundle.tar.gz` | Linux x86_64 desktop UI plus Xray |
 | `sni-spoof-rs-ui-macos-amd64-bundle.tar.gz` | macOS Intel desktop UI plus Xray |
 | `sni-spoof-rs-ui-macos-arm64-bundle.tar.gz` | macOS Apple Silicon desktop UI plus Xray |
-| `sni-spoof-rs-windows-amd64.zip` | Windows CLI, UI, Xray, and WinDivert files |
+| `sni-spoof-rs-windows-amd64.zip` | Windows CLI, UI, Xray, Wintun, and WinDivert files |
 
 ### Fastest Path: Desktop UI
 
@@ -92,7 +93,7 @@ If you use a `*-bundle.tar.gz` UI package or the Windows zip, keep `xray`/`xray.
 
 The UI saves form values, imported links, selected config, theme, scanner settings, and recent logs in `sni-spoof-rs-ui-state.json` next to the executable. Set `SNI_SPOOF_UI_STATE=/path/to/state.json` to use another location. Logs are persistent and can be exported from the Logs panel. Turn off **Logging** in the Logs panel if you do not want new logs kept in memory or written to the state file.
 
-The **Xray TUN mode** checkbox adds an experimental Xray TUN inbound. Run elevated, keep HTTP/SOCKS enabled while testing, and watch for routing loops if another VPN/TUN client is already active.
+The **Xray TUN mode** checkbox adds an experimental Xray TUN inbound. Run elevated, keep HTTP/SOCKS enabled while testing, and watch for routing loops if another VPN/TUN client is already active. On Windows, `wintun.dll` must be beside `xray.exe`; the Windows zip and **Download Xray** button install it automatically.
 
 ### Sharing With Other Devices
 
@@ -319,6 +320,7 @@ sni-spoof-rs یک ابزار Rust برای دور زدن DPI مبتنی بر SNI
 | فایل | پلتفرم |
 |---|---|
 | `sni-spoof-rs-linux-amd64` | نسخه CLI لینوکس x86_64 |
+| `sni-spoof-rs-linux-amd64-musl` | نسخه CLI لینوکس x86_64 با musl برای توزیع‌های قدیمی‌تر |
 | `sni-spoof-rs-linux-arm64` | نسخه CLI لینوکس aarch64 |
 | `sni-spoof-rs-macos-amd64` | نسخه CLI مک Intel |
 | `sni-spoof-rs-macos-arm64` | نسخه CLI مک Apple Silicon |
@@ -328,7 +330,7 @@ sni-spoof-rs یک ابزار Rust برای دور زدن DPI مبتنی بر SNI
 | `sni-spoof-rs-ui-linux-amd64-bundle.tar.gz` | رابط گرافیکی لینوکس x86_64 همراه Xray |
 | `sni-spoof-rs-ui-macos-amd64-bundle.tar.gz` | رابط گرافیکی مک Intel همراه Xray |
 | `sni-spoof-rs-ui-macos-arm64-bundle.tar.gz` | رابط گرافیکی مک Apple Silicon همراه Xray |
-| `sni-spoof-rs-windows-amd64.zip` | نسخه ویندوز شامل CLI، UI، Xray و WinDivert |
+| `sni-spoof-rs-windows-amd64.zip` | نسخه ویندوز شامل CLI، UI، Xray، Wintun و WinDivert |
 
 ### راه سریع: رابط گرافیکی
 
@@ -358,7 +360,7 @@ sudo ./target/release/sni-spoof-rs-ui
 
 UI تنظیمات فرم، لینک‌های وارد شده، کانفیگ انتخاب شده، تم، تنظیمات اسکنر و لاگ‌های اخیر را در فایل `sni-spoof-rs-ui-state.json` کنار برنامه ذخیره می‌کند. برای تغییر مسیر ذخیره‌سازی، متغیر `SNI_SPOOF_UI_STATE=/path/to/state.json` را تنظیم کنید. لاگ‌ها ماندگار هستند و از پنل Logs قابل خروجی گرفتن هستند. اگر نمی‌خواهید لاگ جدید در حافظه یا فایل state ذخیره شود، گزینه **Logging** را در پنل Logs خاموش کنید.
 
-گزینه **Xray TUN mode** یک inbound آزمایشی TUN به Xray اضافه می‌کند. برنامه را با دسترسی بالا اجرا کنید، هنگام تست HTTP/SOCKS را هم روشن نگه دارید، و اگر VPN/TUN دیگری فعال است مراقب loop شدن routeها باشید.
+گزینه **Xray TUN mode** یک inbound آزمایشی TUN به Xray اضافه می‌کند. برنامه را با دسترسی بالا اجرا کنید، هنگام تست HTTP/SOCKS را هم روشن نگه دارید، و اگر VPN/TUN دیگری فعال است مراقب loop شدن routeها باشید. در ویندوز، فایل `wintun.dll` باید کنار `xray.exe` باشد؛ zip ویندوز و دکمه **Download Xray** آن را خودکار نصب می‌کنند.
 
 ### استفاده برای دستگاه‌های دیگر شبکه
 
