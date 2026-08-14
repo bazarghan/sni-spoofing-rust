@@ -1,23 +1,25 @@
 use std::net::SocketAddr;
+use std::sync::Arc;
 use std::time::Duration;
 
 use socket2::{SockRef, TcpKeepalive};
 use tokio::net::TcpStream;
 use tokio::sync::mpsc;
-use tracing::{debug, info, warn};
+use tracing::{debug, warn};
 
 use crate::error::HandlerError;
-use crate::packet::tls;
-use crate::proto::{ConnId, Deregistration, Registration, SnifferCommand, SnifferResult};
+use crate::proto::{
+    ConnId, Deregistration, Registration, SnifferCommand, SnifferCommandSender, SnifferResult,
+};
 use crate::relay;
 
 struct SnifferRegistrationGuard {
-    cmd_tx: std::sync::mpsc::Sender<SnifferCommand>,
+    cmd_tx: SnifferCommandSender,
     conn_id: ConnId,
 }
 
 impl SnifferRegistrationGuard {
-    fn new(cmd_tx: &std::sync::mpsc::Sender<SnifferCommand>, conn_id: ConnId) -> Self {
+    fn new(cmd_tx: &SnifferCommandSender, conn_id: ConnId) -> Self {
         Self {
             cmd_tx: cmd_tx.clone(),
             conn_id,
@@ -37,9 +39,9 @@ impl Drop for SnifferRegistrationGuard {
 pub async fn handle_connection(
     client: TcpStream,
     upstream_addr: SocketAddr,
-    fake_sni: String,
+    fake_payload: Arc<[u8]>,
     local_ip: std::net::IpAddr,
-    cmd_tx: std::sync::mpsc::Sender<SnifferCommand>,
+    cmd_tx: SnifferCommandSender,
     conn_timeout_sec: u64,
     handshake_timeout_sec: u64,
     keepalive_time_sec: u64,
@@ -50,7 +52,7 @@ pub async fn handle_connection(
     if let Err(e) = handle_inner(
         client,
         upstream_addr,
-        &fake_sni,
+        fake_payload,
         local_ip,
         &cmd_tx,
         conn_timeout_sec,
@@ -77,9 +79,9 @@ pub async fn handle_connection(
 async fn handle_inner(
     client: TcpStream,
     upstream_addr: SocketAddr,
-    fake_sni: &str,
+    fake_payload: Arc<[u8]>,
     local_ip: std::net::IpAddr,
-    cmd_tx: &std::sync::mpsc::Sender<SnifferCommand>,
+    cmd_tx: &SnifferCommandSender,
     conn_timeout_sec: u64,
     handshake_timeout_sec: u64,
     keepalive_time_sec: u64,
@@ -87,8 +89,6 @@ async fn handle_inner(
     idle_timeout: Option<u64>,
     buffer_size: usize,
 ) -> Result<(), HandlerError> {
-    let fake_payload = tls::build_client_hello(fake_sni);
-
     let upstream_sock = if upstream_addr.is_ipv4() {
         socket2::Socket::new(
             socket2::Domain::IPV4,
@@ -183,9 +183,11 @@ async fn handle_inner(
         .with_interval(Duration::from_secs(keepalive_interval_sec));
     let sock_ref = SockRef::from(&upstream);
     let _ = sock_ref.set_tcp_keepalive(&keepalive);
+    let _ = upstream.set_nodelay(true);
 
     let client_ref = SockRef::from(&client);
     let _ = client_ref.set_tcp_keepalive(&keepalive);
+    let _ = client.set_nodelay(true);
 
     debug!(
         port = local_addr.port(),
@@ -207,7 +209,7 @@ async fn handle_inner(
         Err(_) => return Err(HandlerError::Timeout),
     }
 
-    info!(port = local_addr.port(), "fake confirmed, starting relay");
+    debug!(port = local_addr.port(), "fake confirmed, starting relay");
 
     relay::relay(client, upstream, idle_timeout, buffer_size)
         .await

@@ -26,6 +26,7 @@ sni-spoof-rs is a local TCP forwarder and desktop helper for Cloudflare-fronted 
 - Public IP check through the local proxy, so the UI can show whether the tunnel is actually working.
 - Optional log persistence toggle for users who do not want logs written to the UI state file.
 - Experimental Xray TUN inbound mode for elevated desktop runs.
+- Linux zero-copy TCP relay and a kernel-side handshake filter for lower CPU use under load.
 - Docker image for running one shared proxy box for a local network.
 - GitHub Actions release builds for Linux, macOS, Windows, and GHCR Docker images.
 
@@ -157,7 +158,7 @@ Replace `CLOUDFLARE_IP` with the resolved IP.
 | `keepalive_time_sec` | Idle time before TCP keepalive starts |
 | `keepalive_interval_sec` | Time between TCP keepalive probes |
 | `idle_timeout` | Optional top-level timeout for idle relays |
-| `buffer_size` | Top-level relay buffer size in KiB |
+| `buffer_size` | Top-level relay buffer size in KiB; defaults to `64` |
 | `graceful_shutdown_sec` | Top-level shutdown drain time; `0` exits immediately |
 
 Multiple listeners are supported. Each listener maps one local port to one upstream.
@@ -293,6 +294,7 @@ sni-spoof-rs یک ابزار Rust برای دور زدن DPI مبتنی بر SNI
 - چک کردن IP عمومی از داخل پروکسی برای فهمیدن اینکه اتصال واقعا برقرار شده یا نه.
 - امکان خاموش کردن ذخیره لاگ برای کسانی که نمی‌خواهند لاگ در فایل state نوشته شود.
 - حالت آزمایشی Xray TUN برای اجرای دسکتاپ با دسترسی بالا.
+- رله TCP بدون کپی و فیلتر handshake در کرنل Linux برای مصرف CPU کمتر زیر بار.
 - نسخه Docker برای راه‌اندازی یک پروکسی مشترک روی یک سیستم.
 - ساخت خودکار فایل‌های Release و Docker image با GitHub Actions.
 
@@ -422,7 +424,7 @@ nslookup myserver.example.com
 | `keepalive_time_sec` | زمان بیکاری قبل از شروع TCP keepalive |
 | `keepalive_interval_sec` | فاصله بین keepalive probeها |
 | `idle_timeout` | مقدار اختیاری در سطح اصلی برای قطع اتصال بیکار |
-| `buffer_size` | اندازه بافر relay بر حسب KiB |
+| `buffer_size` | اندازه بافر relay بر حسب KiB؛ مقدار پیش‌فرض `64` است |
 | `graceful_shutdown_sec` | زمان انتظار هنگام خاموش شدن؛ مقدار `0` یعنی خروج سریع |
 
 می‌توانید چند listener داشته باشید؛ هر listener یک پورت محلی را به یک مقصد وصل می‌کند.

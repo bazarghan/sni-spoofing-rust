@@ -9,13 +9,11 @@ use std::collections::{HashMap, HashSet};
 use std::net::IpAddr;
 use std::sync::atomic::{AtomicBool, Ordering};
 use std::sync::Arc;
-use std::thread;
-use std::time::Duration;
 
 use tracing::{debug, error, info, warn};
 
 use crate::packet::{detect_ip_version, ipv4, ipv6, tcp, FrameKind, IpVersion};
-use crate::proto::{ConnId, SnifferCommand, SnifferResult};
+use crate::proto::{ConnId, SnifferCommand, SnifferResult, SnifferWaker};
 
 pub trait RawBackend: Send + 'static {
     fn recv_frame(&mut self, buf: &mut [u8]) -> Result<usize, crate::error::SnifferError>;
@@ -24,12 +22,15 @@ pub trait RawBackend: Send + 'static {
     fn skip_checksum_on_send(&self) -> bool {
         false
     }
+    fn command_waker(&self) -> Option<Arc<dyn SnifferWaker>> {
+        None
+    }
 }
 
 struct ConnState {
     isn: Option<u32>,
     server_isn: Option<u32>,
-    fake_payload: Vec<u8>,
+    fake_payload: Arc<[u8]>,
     fake_injected: bool,
     result_tx: tokio::sync::mpsc::Sender<SnifferResult>,
 }
@@ -316,8 +317,6 @@ pub fn run_sniffer(
                         link_len,
                         skip_checksum,
                     );
-                    thread::sleep(Duration::from_millis(1));
-
                     if let Err(e) = backend.send_frame(&fake_frame) {
                         warn!(port = parsed.outbound_id.src_port, "inject failed: {}", e);
                         let _ = conn
@@ -328,7 +327,7 @@ pub fn run_sniffer(
                         let fake_seq = isn
                             .wrapping_add(1)
                             .wrapping_sub(conn.fake_payload.len() as u32);
-                        info!(
+                        debug!(
                             port = parsed.outbound_id.src_port,
                             fake_seq = fake_seq,
                             isn = isn,
@@ -346,7 +345,7 @@ pub fn run_sniffer(
             {
                 if let Some(isn) = conn.isn {
                     if ack == isn.wrapping_add(1) {
-                        info!(
+                        debug!(
                             port = parsed.outbound_id.src_port,
                             "server ACK confirmed, fake was ignored"
                         );

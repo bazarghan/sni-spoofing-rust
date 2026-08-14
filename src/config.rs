@@ -19,7 +19,7 @@ fn default_keepalive_interval_sec() -> u64 {
 }
 
 fn default_buffer_size() -> usize {
-    8
+    64
 }
 
 fn default_graceful_shutdown_sec() -> u64 {

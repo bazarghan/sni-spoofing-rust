@@ -1,4 +1,5 @@
 use std::net::IpAddr;
+use std::sync::Arc;
 use std::time::Duration;
 
 use tokio::net::TcpListener;
@@ -8,7 +9,8 @@ use tracing::{error, info, warn};
 
 use crate::config::ListenerConfig;
 use crate::handler;
-use crate::proto::SnifferCommand;
+use crate::packet::tls;
+use crate::proto::SnifferCommandSender;
 
 fn is_fd_exhausted(e: &std::io::Error) -> bool {
     #[cfg(unix)]
@@ -35,7 +37,7 @@ fn log_task_result(result: Result<(), JoinError>) {
 pub async fn run_listener(
     lc: ListenerConfig,
     local_ip: IpAddr,
-    cmd_tx: std::sync::mpsc::Sender<SnifferCommand>,
+    cmd_tx: SnifferCommandSender,
     idle_timeout: Option<u64>,
     buffer_size: usize,
     token: CancellationToken,
@@ -50,6 +52,7 @@ pub async fn run_listener(
             return;
         }
     };
+    let fake_payload: Arc<[u8]> = tls::build_client_hello(&lc.fake_sni).into();
 
     let mut tasks = JoinSet::new();
 
@@ -68,7 +71,7 @@ pub async fn run_listener(
         match accepted {
             Ok((stream, peer)) => {
                 let upstream = lc.connect;
-                let sni = lc.fake_sni.clone();
+                let fake_payload = fake_payload.clone();
                 let tx = cmd_tx.clone();
                 let lip = local_ip;
                 let conn_timeout = lc.conn_timeout_sec;
@@ -80,7 +83,7 @@ pub async fn run_listener(
                     handler::handle_connection(
                         stream,
                         upstream,
-                        sni,
+                        fake_payload,
                         lip,
                         tx,
                         conn_timeout,

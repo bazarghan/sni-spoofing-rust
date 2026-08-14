@@ -8,6 +8,7 @@ use tracing::{info, warn};
 
 use crate::config::{self, Config};
 use crate::error::ProxyError;
+use crate::sniffer::RawBackend;
 use crate::{listener, proto, shutdown, sniffer};
 
 pub struct RunningProxy {
@@ -94,7 +95,8 @@ pub fn start_proxy(cfg: Config) -> Result<RunningProxy, ProxyError> {
     let backend = sniffer::windows::WinDivertBackend::open(&upstream_sockaddrs)
         .map_err(ProxyError::Sniffer)?;
 
-    let (cmd_tx, cmd_rx) = std::sync::mpsc::channel::<proto::SnifferCommand>();
+    let (raw_cmd_tx, cmd_rx) = std::sync::mpsc::channel::<proto::SnifferCommand>();
+    let cmd_tx = proto::SnifferCommandSender::new(raw_cmd_tx, backend.command_waker());
     let stop = Arc::new(AtomicBool::new(false));
     let token = CancellationToken::new();
 
