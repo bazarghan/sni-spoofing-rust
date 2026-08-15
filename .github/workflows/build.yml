@@ -36,7 +36,7 @@ jobs:
             ui_name: ""
             xray_asset: ""
           - target: x86_64-apple-darwin
-            os: macos-13
+            os: macos-15-intel
             name: sni-spoof-rs-macos-amd64
             ui_name: sni-spoof-rs-ui-macos-amd64
             xray_asset: Xray-macos-64.zip
