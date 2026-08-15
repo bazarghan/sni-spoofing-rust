@@ -1,38 +1,19 @@
-name: Release
+name: Build Production Artifacts
 
 on:
-  push:
-    tags:
-      - 'v*'
   workflow_dispatch:
-    inputs:
-      tag_name:
-        description: 'Release tag name (e.g. v1.0.3)'
-        required: false
-        default: ''
-        type: string
-      commit_to_releases:
-        description: 'Commit prebuilt binaries to releases/ folder in repo'
-        required: false
-        default: true
-        type: boolean
-      is_draft:
-        description: 'Create as draft release'
-        required: false
-        default: false
-        type: boolean
-      is_prerelease:
-        description: 'Mark as pre-release'
-        required: false
-        default: false
-        type: boolean
+  pull_request:
+    paths:
+      - 'src/**'
+      - 'Cargo.*'
+      - '.github/workflows/build.yml'
 
 permissions:
-  contents: write
+  contents: read
 
 concurrency:
   group: ${{ github.workflow }}-${{ github.ref }}
-  cancel-in-progress: false
+  cancel-in-progress: true
 
 jobs:
   build:
@@ -179,76 +160,9 @@ jobs:
           Copy-Item wintun-extracted/wintun/bin/amd64/wintun.dll dist/${{ matrix.name }}/
           Compress-Archive -Path dist/${{ matrix.name }}/* -DestinationPath dist/${{ matrix.name }}.zip
 
-      - uses: actions/upload-artifact@v4
+      - name: Upload Build Artifacts
+        uses: actions/upload-artifact@v4
         with:
           name: ${{ matrix.name }}
           path: dist/*
-
-  release:
-    needs: build
-    runs-on: ubuntu-latest
-    permissions:
-      contents: write
-    steps:
-      - uses: actions/checkout@v4
-        with:
-          fetch-depth: 0
-
-      - uses: actions/download-artifact@v4
-        with:
-          path: dist
-          merge-multiple: true
-
-      - name: Determine Release Tag
-        id: release_tag
-        run: |
-          if [ -n "${{ inputs.tag_name }}" ]; then
-            TAG="${{ inputs.tag_name }}"
-          elif [[ "${GITHUB_REF}" == refs/tags/* ]]; then
-            TAG="${GITHUB_REF#refs/tags/}"
-          else
-            TAG="v1.0.2"
-          fi
-          echo "tag=${TAG}" >> $GITHUB_OUTPUT
-
-      - name: Create GitHub Release
-        uses: softprops/action-gh-release@v2
-        with:
-          tag_name: ${{ steps.release_tag.outputs.tag }}
-          name: ${{ steps.release_tag.outputs.tag }}
-          files: dist/*
-          generate_release_notes: true
-          draft: ${{ inputs.is_draft || false }}
-          prerelease: ${{ inputs.is_prerelease || false }}
-          make_latest: true
-
-      - name: Commit binaries to releases/ folder
-        if: ${{ inputs.commit_to_releases != false }}
-        run: |
-          mkdir -p releases
-          cp dist/sni-spoof-rs-linux-amd64 releases/ || true
-          cp dist/sni-spoof-rs-linux-amd64-musl releases/ || true
-          cp dist/sni-spoof-rs-linux-arm64 releases/ || true
-          cp dist/sni-spoof-rs-macos-amd64 releases/ || true
-          cp dist/sni-spoof-rs-macos-arm64 releases/ || true
-          cp dist/sni-spoof-rs-windows-amd64.zip releases/ || true
-          cp dist/sni-spoof-rs-ui-linux-amd64 releases/ || true
-          cp dist/sni-spoof-rs-ui-macos-amd64 releases/ || true
-          cp dist/sni-spoof-rs-ui-macos-arm64 releases/ || true
-          cp dist/sni-spoof-rs-ui-linux-amd64-bundle.tar.gz releases/ || true
-          cp dist/sni-spoof-rs-ui-macos-amd64-bundle.tar.gz releases/ || true
-          cp dist/sni-spoof-rs-ui-macos-arm64-bundle.tar.gz releases/ || true
-          chmod +x releases/sni-spoof-rs-linux-* releases/sni-spoof-rs-macos-* || true
-          chmod +x releases/sni-spoof-rs-ui-* || true
-          TAG="${{ steps.release_tag.outputs.tag }}"
-          if [ -f releases/README.md ]; then
-            sed -i "s/Current version: \*\*v[0-9.]*\*\*/Current version: **${TAG}**/" releases/README.md || true
-            sed -i "s/نسخه فعلی: \*\*v[0-9.]*\*\*/نسخه فعلی: **${TAG}**/" releases/README.md || true
-          fi
-          git config user.name "github-actions[bot]"
-          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
-          git add releases/
-          if ! git diff --cached --quiet; then
-            git commit -m "chore(release): update prebuilt binaries to ${TAG}"
-            git push origin HEAD:main || true
-          fi
+          retention-days: 14

@@ -1,4 +1,4 @@
-name: ci
+name: CI
 
 on:
   push:
@@ -18,7 +18,7 @@ jobs:
   rust:
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v6
+      - uses: actions/checkout@v4
 
       - uses: dtolnay/rust-toolchain@stable
         with:
@@ -32,19 +32,19 @@ jobs:
             libxcb-render0-dev libxcb-shape0-dev libxcb-xfixes0-dev \
             libxkbcommon-dev
 
-      - name: Format
+      - name: Format Check
         run: cargo fmt --check
 
       - name: Test
         run: cargo test --features ui
 
-      - name: Clippy
+      - name: Clippy Lint
         run: cargo clippy --features ui --all-targets -- -D warnings
 
   docker:
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v6
+      - uses: actions/checkout@v4
 
       - name: Build Docker image
         run: docker build -f docker/Dockerfile -t sni-spoof-rs-ci .
