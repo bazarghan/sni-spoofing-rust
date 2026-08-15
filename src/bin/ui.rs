@@ -258,7 +258,7 @@ fn palette(light_mode: bool) -> Palette {
 fn section_frame(palette: Palette) -> egui::Frame {
     egui::Frame::group(&egui::Style::default())
         .fill(palette.section_fill)
-        .stroke(egui::Stroke::new(1.0, palette.border))
+        .stroke(egui::Stroke::new(1.0_f32, palette.border))
         .rounding(egui::Rounding::same(8.0))
         .inner_margin(egui::Margin::same(14.0))
 }
